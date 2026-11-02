@@ -56,6 +56,10 @@ struct ContentView: View {
                 } footer: {
                     Text("Blocks ads and trackers in every app via a local DNS filter. Uses the VPN slot, so it can't run alongside another VPN.")
                 }
+
+                #if DEBUG
+                DebugSection()
+                #endif
             }
             .navigationTitle("Spamurai")
             .sheet(isPresented: $showPaywall) { PaywallView() }

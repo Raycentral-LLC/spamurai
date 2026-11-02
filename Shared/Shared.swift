@@ -38,13 +38,14 @@ enum SharedStore {
         return url
     }
 
-    static let dnsRemoteURL = AppConfig.filtersBaseURL.appendingPathComponent("dns/default.json")
+    static let dnsRemoteURL = AppConfig.filtersBaseURL.appendingPathComponent("dns/default.srs")
 
-    /// sing-box rule-set used by the Pro DNS tunnel.
+    /// Binary sing-box rule-set (.srs) used by the Pro DNS tunnel. Binary, not JSON: parsing a
+    /// 190k-domain JSON list exceeds the ~50 MB Network Extension memory limit.
     static func dnsListURL() -> URL? {
         FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroup)?
-            .appendingPathComponent("lists/dns.json")
+            .appendingPathComponent("lists/dns.srs")
     }
 
     static func downloadedDNSListURL() -> URL? {
@@ -61,4 +62,28 @@ enum SharedStore {
         get { defaults?.bool(forKey: "isPro") ?? false }
         set { defaults?.set(newValue, forKey: "isPro") }
     }
+
+    #if DEBUG
+    /// Debug builds only: unlock Pro without a purchase, for on-device testing.
+    static var debugPro: Bool {
+        get { defaults?.bool(forKey: "debugPro") ?? false }
+        set { defaults?.set(newValue, forKey: "debugPro") }
+    }
+
+    /// Debug log shared by the app and extensions (Library/Caches/diag.log in the App Group).
+    static func diag(_ line: String) {
+        guard let url = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroup)?
+            .appendingPathComponent("Library/Caches/diag.log") else { return }
+        let entry = "\(Date().formatted(.iso8601)) [\(Bundle.main.bundleURL.lastPathComponent)] \(line)\n"
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(Data(entry.utf8))
+            try? handle.close()
+        } else {
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? Data(entry.utf8).write(to: url)
+        }
+    }
+    #endif
 }

@@ -23,6 +23,9 @@ final class LibboxCore: NSObject, @unchecked Sendable {
       DispatchQueue.global(qos: .userInitiated).async {
         do {
           try Self.setup()
+          #if DEBUG
+          SharedStore.diag("core: setup done")
+          #endif
           var error: NSError?
           guard let server = LibboxNewCommandServer(self, self, &error) else {
             throw error ?? LibboxCoreError("failed to create command server")
@@ -30,7 +33,13 @@ final class LibboxCore: NSObject, @unchecked Sendable {
           self.server = server
           // libbox needs the command server to host the service.
           try server.start()
+          #if DEBUG
+          SharedStore.diag("core: command server up")
+          #endif
           try server.startOrReloadService(configJson, options: LibboxOverrideOptions())
+          #if DEBUG
+          SharedStore.diag("core: service started")
+          #endif
           cont.resume()
         } catch {
           cont.resume(throwing: error)
@@ -134,6 +143,9 @@ extension LibboxCore: LibboxPlatformInterfaceProtocol {
       settings.proxySettings = proxy
     }
 
+    #if DEBUG
+    SharedStore.diag("core: openTun, applying settings dns=\(settings.dnsSettings?.servers ?? [])")
+    #endif
     try Self.waitFor { try await provider.setTunnelNetworkSettings(settings) }
 
     var fd = LibboxGetTunnelFileDescriptor()
@@ -142,6 +154,9 @@ extension LibboxCore: LibboxPlatformInterfaceProtocol {
     }
     if fd == -1 { throw LibboxCoreError("missing utun file descriptor") }
     ret0_.pointee = fd
+    #if DEBUG
+    SharedStore.diag("core: tun fd=\(fd)")
+    #endif
   }
 
   /// Sockets created inside a Network Extension already bypass its own tunnel.
@@ -265,6 +280,9 @@ extension LibboxCore {
 
 extension LibboxCore: LibboxCommandServerHandlerProtocol {
   func serviceStop() throws {
+    #if DEBUG
+    SharedStore.diag("core: serviceStop requested")
+    #endif
     provider?.cancelTunnelWithError(nil)
   }
 
@@ -275,7 +293,12 @@ extension LibboxCore: LibboxCommandServerHandlerProtocol {
   func getSystemProxyStatus() throws -> LibboxSystemProxyStatus { LibboxSystemProxyStatus() }
   func setSystemProxyEnabled(_ enabled: Bool) throws {}
   func triggerNativeCrash() throws { throw LibboxCoreError("not supported") }
-  func writeDebugMessage(_ message: String?) { NSLog("[libbox] %@", message ?? "") }
+  func writeDebugMessage(_ message: String?) {
+    NSLog("[libbox] %@", message ?? "")
+    #if DEBUG
+    SharedStore.diag("libbox: \(message ?? "")")
+    #endif
+  }
   func connectSSHAgent(_ ret0_: UnsafeMutablePointer<Int32>?) throws {
     throw LibboxCoreError("not supported")
   }

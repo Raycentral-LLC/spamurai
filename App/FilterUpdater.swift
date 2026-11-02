@@ -33,7 +33,7 @@ final class FilterUpdater: ObservableObject {
                 if enabled[list] == true { try await reload(list) }
             }
             // Picked up by the DNS tunnel on its next start.
-            try await download(from: SharedStore.dnsRemoteURL, to: SharedStore.dnsListURL(), expectArray: false)
+            try await download(from: SharedStore.dnsRemoteURL, to: SharedStore.dnsListURL(), format: .ruleSet)
             let now = Date()
             SharedStore.lastUpdate = now
             lastUpdate = now
@@ -42,11 +42,15 @@ final class FilterUpdater: ObservableObject {
         }
     }
 
-    private func download(from url: URL, to dest: URL?, expectArray: Bool = true) async throws {
+    private enum Format { case safariRules, ruleSet }
+
+    private func download(from url: URL, to dest: URL?, format: Format = .safariRules) async throws {
         let (data, response) = try await URLSession.shared.data(from: url)
-        let json = try? JSONSerialization.jsonObject(with: data)
-        guard (response as? HTTPURLResponse)?.statusCode == 200,
-              expectArray ? json is [Any] : json is [String: Any] else {
+        let valid = switch format {
+        case .safariRules: (try? JSONSerialization.jsonObject(with: data)) is [Any]
+        case .ruleSet: data.starts(with: Array("SRS".utf8))
+        }
+        guard (response as? HTTPURLResponse)?.statusCode == 200, valid else {
             throw URLError(.cannotParseResponse)
         }
         guard let dest else { throw CocoaError(.fileNoSuchFile) }

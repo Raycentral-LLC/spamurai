@@ -36,6 +36,9 @@ final class Store: ObservableObject {
                 pro = true
             }
         }
+        #if DEBUG
+        pro = pro || SharedStore.debugPro
+        #endif
         isPro = pro
         SharedStore.isPro = pro
     }

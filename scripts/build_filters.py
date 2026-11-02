@@ -3,8 +3,10 @@
 
 Output (--out, default dist/):
   safari/<list>.json   Safari content-blocker rules
-  dns/<list>.json      sing-box rule-set (source format) for the Pro DNS tunnel
-  dns/<list>.txt       plain domain list (for a DoH server such as AdGuard Home / blocky)
+  dns/default.json     sing-box rule-set, source format
+  dns/default.srs      the same, compiled to binary (needs the sing-box CLI: --sing-box or PATH);
+                       the Pro DNS tunnel loads only this — JSON is too heavy for its memory limit
+  dns/default.txt       plain domain list (for a DoH server such as AdGuard Home / blocky)
   manifest.json        build time and counts
 
 --bundle also copies the Safari lists into ContentBlocker/Lists/ for shipping in the app.
@@ -18,6 +20,7 @@ import datetime
 import json
 import re
 import shutil
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -115,6 +118,7 @@ def write_json(path: Path, data) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=ROOT / "dist")
+    ap.add_argument("--sing-box", default=shutil.which("sing-box"), help="sing-box CLI used to compile .srs")
     ap.add_argument("--bundle", action="store_true", help="copy Safari lists into ContentBlocker/Lists")
     args = ap.parse_args()
 
@@ -131,10 +135,14 @@ def main() -> None:
     domains = dns_domains(block, allow, allow_doc)
     write_json(args.out / "dns" / "default.json", {"version": 1, "rules": [{"domain_suffix": domains}]})
     (args.out / "dns" / "default.txt").write_text("\n".join(domains) + "\n", encoding="utf-8")
+    if not args.sing_box:
+        sys.exit("sing-box CLI not found: pass --sing-box or add it to PATH")
+    subprocess.run([args.sing_box, "rule-set", "compile", "--output", str(args.out / "dns" / "default.srs"),
+                    str(args.out / "dns" / "default.json")], check=True)
     manifest["dns"] = len(domains)
     print(f"dns/default: {len(domains)} domains")
     if args.bundle:
-        shutil.copy(args.out / "dns" / "default.json", ROOT / "PacketTunnel" / "Lists" / "dns.json")
+        shutil.copy(args.out / "dns" / "default.srs", ROOT / "PacketTunnel" / "Lists" / "dns.srs")
 
     write_json(args.out / "manifest.json", manifest)
 
