@@ -6,6 +6,9 @@ enum AppConfig {
     static let bundlePrefix = "com.raycentral.spamurai"
     // TODO: point to your own domain once GitHub Pages (or R2) is set up.
     static let filtersBaseURL = URL(string: "https://rahattt.github.io/spamurai")!
+    static let privacyURL = filtersBaseURL.appendingPathComponent("privacy.html")
+    /// Apple's standard EULA, which App Store subscriptions may use.
+    static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 }
 
 enum BlockerList: String, CaseIterable, Identifiable, Hashable {
@@ -56,6 +59,15 @@ enum SharedStore {
     static var lastUpdate: Date? {
         get { defaults?.object(forKey: "lastUpdate") as? Date }
         set { defaults?.set(newValue, forKey: "lastUpdate") }
+    }
+
+    /// Blocking is paused until this date (the tunnel stays up and resolves everything).
+    static var pausedUntil: Date? {
+        get {
+            guard let date = defaults?.object(forKey: "pausedUntil") as? Date, date > Date() else { return nil }
+            return date
+        }
+        set { defaults?.set(newValue, forKey: "pausedUntil") }
     }
 
     static var isPro: Bool {

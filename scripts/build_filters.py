@@ -145,6 +145,8 @@ def main() -> None:
         shutil.copy(args.out / "dns" / "default.srs", ROOT / "PacketTunnel" / "Lists" / "dns.srs")
 
     write_json(args.out / "manifest.json", manifest)
+    # Static pages served next to the lists (privacy policy linked from the app).
+    shutil.copytree(ROOT / "site", args.out, dirs_exist_ok=True)
 
 
 def load(urls):

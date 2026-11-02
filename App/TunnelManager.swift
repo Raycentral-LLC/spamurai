@@ -5,6 +5,7 @@
 final class TunnelManager: ObservableObject {
     @Published private(set) var status: NEVPNStatus = .invalid
     @Published var errorMessage: String?
+    @Published private(set) var pausedUntil = SharedStore.pausedUntil
 
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
@@ -46,6 +47,24 @@ final class TunnelManager: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Lets everything through for a while; the tunnel resumes blocking on its own.
+    func pause(for seconds: TimeInterval) async {
+        let until = Date().addingTimeInterval(seconds)
+        SharedStore.pausedUntil = until
+        pausedUntil = until
+        await reload()
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
+            self?.pausedUntil = SharedStore.pausedUntil
+        }
+    }
+
+    func resume() async {
+        SharedStore.pausedUntil = nil
+        pausedUntil = nil
+        await reload()
     }
 
     /// Asks the running tunnel to re-read custom rules and the list. No-op when it's off.

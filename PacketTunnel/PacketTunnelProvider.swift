@@ -5,6 +5,7 @@ import NetworkExtension
 final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let core = LibboxCore()
     private let journal = QueryJournal()
+    private var resumeTask: Task<Void, Never>?
 
     override func startTunnel(options: [String: NSObject]?) async throws {
         guard SharedStore.isPro else { throw TunnelError.message("Spamurai Pro is required for system-wide blocking") }
@@ -18,15 +19,19 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         SharedStore.diag("started: \(Memory.report())")
         journal.start()
+        scheduleResume()
         Task {
-            for delay in [5, 30, 120] as [UInt64] {
+            var elapsed: UInt64 = 0
+            for delay in [5, 25, 90] + Array(repeating: 600, count: 36) as [UInt64] {
                 try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
-                SharedStore.diag("after \(delay)s: \(Memory.report())")
+                elapsed += delay
+                SharedStore.diag("after \(elapsed)s: \(Memory.report())")
             }
         }
         #else
         try await core.start(provider: self, configJson: try DNSConfig.make())
         journal.start()
+        scheduleResume()
         #endif
     }
 
@@ -34,11 +39,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         #if DEBUG
         SharedStore.diag("stopTunnel reason=\(reason.rawValue) \(Memory.report())")
         #endif
+        resumeTask?.cancel()
         journal.stop()
         core.stop()
     }
 
-    /// App → tunnel messages: "version"; "reload" re-reads custom rules and the downloaded list.
+    /// App → tunnel messages: "version"; "reload" re-reads custom rules, pause state and the list
+    /// (the app sets `SharedStore.pausedUntil` before sending it to pause or resume).
     override func handleAppMessage(_ messageData: Data) async -> Data? {
         switch String(data: messageData, encoding: .utf8) {
         case "version":
@@ -46,12 +53,24 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         case "reload":
             do {
                 try await core.reload(configJson: try DNSConfig.make())
+                scheduleResume()
                 return Data("ok".utf8)
             } catch {
                 return Data(error.localizedDescription.utf8)
             }
         default:
             return nil
+        }
+    }
+
+    /// Re-arms blocking when a pause ends — here, so it happens even with the app closed.
+    private func scheduleResume() {
+        resumeTask?.cancel()
+        guard let until = SharedStore.pausedUntil else { return }
+        resumeTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(max(0, until.timeIntervalSinceNow) * 1e9))
+            guard !Task.isCancelled, let self else { return }
+            try? await self.core.reload(configJson: try DNSConfig.make())
         }
     }
 }
@@ -67,15 +86,16 @@ enum DNSConfig {
 
         var ruleSets: [[String: Any]] = []
         var dnsRules: [[String: Any]] = []
+        let paused = SharedStore.pausedUntil != nil
         // Order matters: the user's allow list wins over everything, then their block list.
         let allow = CustomRules.allow, block = CustomRules.block
-        if !allow.isEmpty {
+        if !allow.isEmpty, !paused {
             dnsRules.append(["domain_suffix": allow, "action": "route", "server": "cloudflare"])
         }
-        if !block.isEmpty {
+        if !block.isEmpty, !paused {
             dnsRules.append(["domain_suffix": block, "action": "predefined", "rcode": "NXDOMAIN"])
         }
-        if let listPath {
+        if let listPath, !paused {
             ruleSets.append(["type": "local", "tag": "block", "format": "binary", "path": listPath])
             dnsRules.append(["rule_set": ["block"], "action": "predefined", "rcode": "NXDOMAIN"])
         }
