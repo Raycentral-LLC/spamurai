@@ -1,0 +1,9 @@
+Spamurai.xcodeproj/
+dist/
+build/
+DerivedData/
+xcuserdata/
+.DS_Store
+__pycache__/
+Frameworks/
+.build/
