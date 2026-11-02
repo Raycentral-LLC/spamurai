@@ -4,6 +4,7 @@ import NetworkExtension
 /// so regular traffic never passes through sing-box — it just answers DNS and blocks listed domains.
 final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let core = LibboxCore()
+    private let journal = QueryJournal()
 
     override func startTunnel(options: [String: NSObject]?) async throws {
         guard SharedStore.isPro else { throw TunnelError.message("Spamurai Pro is required for system-wide blocking") }
@@ -16,6 +17,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             throw error
         }
         SharedStore.diag("started: \(Memory.report())")
+        journal.start()
         Task {
             for delay in [5, 30, 120] as [UInt64] {
                 try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
@@ -24,6 +26,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         #else
         try await core.start(provider: self, configJson: try DNSConfig.make())
+        journal.start()
         #endif
     }
 
@@ -31,11 +34,25 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         #if DEBUG
         SharedStore.diag("stopTunnel reason=\(reason.rawValue) \(Memory.report())")
         #endif
+        journal.stop()
         core.stop()
     }
 
+    /// App → tunnel messages: "version"; "reload" re-reads custom rules and the downloaded list.
     override func handleAppMessage(_ messageData: Data) async -> Data? {
-        String(data: messageData, encoding: .utf8) == "version" ? core.version.data(using: .utf8) : nil
+        switch String(data: messageData, encoding: .utf8) {
+        case "version":
+            return core.version.data(using: .utf8)
+        case "reload":
+            do {
+                try await core.reload(configJson: try DNSConfig.make())
+                return Data("ok".utf8)
+            } catch {
+                return Data(error.localizedDescription.utf8)
+            }
+        default:
+            return nil
+        }
     }
 }
 
@@ -50,6 +67,14 @@ enum DNSConfig {
 
         var ruleSets: [[String: Any]] = []
         var dnsRules: [[String: Any]] = []
+        // Order matters: the user's allow list wins over everything, then their block list.
+        let allow = CustomRules.allow, block = CustomRules.block
+        if !allow.isEmpty {
+            dnsRules.append(["domain_suffix": allow, "action": "route", "server": "cloudflare"])
+        }
+        if !block.isEmpty {
+            dnsRules.append(["domain_suffix": block, "action": "predefined", "rcode": "NXDOMAIN"])
+        }
         if let listPath {
             ruleSets.append(["type": "local", "tag": "block", "format": "binary", "path": listPath])
             dnsRules.append(["rule_set": ["block"], "action": "predefined", "rcode": "NXDOMAIN"])
@@ -61,7 +86,9 @@ enum DNSConfig {
             .appendingPathComponent("Library/Caches/box.log").path ?? ""
         let log: [String: Any] = ["level": "debug", "output": logPath, "timestamp": true]
         #else
-        let log: [String: Any] = ["level": "warn"]
+        // Debug level is what carries per-query lines; they go only to the in-memory buffer
+        // that QueryJournal reads, never to disk.
+        let log: [String: Any] = ["level": "debug"]
         #endif
         let config: [String: Any] = [
             "log": log,

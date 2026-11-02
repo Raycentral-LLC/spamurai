@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 struct ContentView: View {
     @EnvironmentObject private var filters: FilterUpdater
@@ -48,6 +49,12 @@ struct ContentView: View {
                         if let error = tunnel.errorMessage {
                             Text(error).font(.footnote).foregroundStyle(.red)
                         }
+                        NavigationLink {
+                            JournalView()
+                        } label: {
+                            LabeledContent("Activity", value: "\(StatsStore.today.blocked.formatted()) blocked today")
+                        }
+                        NavigationLink("My rules") { RulesView() }
                     } else {
                         Button("Get Spamurai Pro") { showPaywall = true }
                     }
@@ -71,6 +78,7 @@ struct ContentView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await filters.refreshStates() } }
+                if phase == .background { WidgetCenter.shared.reloadAllTimelines() }
             }
             .onChange(of: store.isPro) { _, pro in
                 if !pro, tunnel.isOn { Task { await tunnel.setEnabled(false) } }

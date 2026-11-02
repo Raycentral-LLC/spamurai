@@ -1,5 +1,5 @@
 import Foundation
-import Libbox
+@preconcurrency import Libbox
 import Network
 import NetworkExtension
 
@@ -48,6 +48,21 @@ final class LibboxCore: NSObject, @unchecked Sendable {
     }
   }
 
+  /// Applies a new config to the running service (custom rules, a fresh list).
+  func reload(configJson: String) async throws {
+    guard let server else { throw LibboxCoreError("service is not running") }
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+      DispatchQueue.global(qos: .userInitiated).async {
+        do {
+          try server.startOrReloadService(configJson, options: LibboxOverrideOptions())
+          cont.resume()
+        } catch {
+          cont.resume(throwing: error)
+        }
+      }
+    }
+  }
+
   func stop() {
     if let server {
       try? server.closeService()
@@ -73,7 +88,8 @@ final class LibboxCore: NSObject, @unchecked Sendable {
     options.basePath = shared.path
     options.workingPath = working.path
     options.tempPath = caches.path
-    options.logMaxLines = 3000
+    // Only QueryJournal reads the buffer, and it streams lines as they arrive.
+    options.logMaxLines = 200
     var error: NSError?
     guard LibboxSetup(options, &error) else {
       throw error ?? LibboxCoreError("libbox setup failed")

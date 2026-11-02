@@ -11,8 +11,9 @@ struct PaywallView: View {
             List {
                 Section {
                     Label("Block ads in every app", systemImage: "shield.lefthalf.filled")
-                    Label("Custom allow & block lists", systemImage: "list.bullet")
-                    Label("Blocked-request stats", systemImage: "chart.bar")
+                    Label("Live activity: see what every app connects to", systemImage: "waveform.path.ecg")
+                    Label("Your own allow & block lists", systemImage: "list.bullet")
+                    Label("Home & Lock Screen widgets", systemImage: "square.grid.2x2")
                 }
                 Section {
                     ForEach(store.products) { product in

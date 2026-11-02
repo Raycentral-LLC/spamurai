@@ -45,6 +45,7 @@ targets:
       - target: ContentBlockerAds
       - target: ContentBlockerPrivacy
       - target: PacketTunnel
+      - target: SpamuraiWidget
       - framework: Frameworks/Libbox.xcframework
         link: false
         embed: true
@@ -128,3 +129,26 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.raycentral.spamurai.PacketTunnel
+
+  SpamuraiWidget:
+    type: app-extension
+    platform: iOS
+    sources: [Widget, Shared]
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: Config/Widget-Info.plist
+      properties:
+        CFBundleDisplayName: Spamurai
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Config/Widget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.raycentral.spamurai]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.raycentral.spamurai.Widget

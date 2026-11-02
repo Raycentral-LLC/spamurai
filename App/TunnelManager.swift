@@ -48,6 +48,12 @@ final class TunnelManager: ObservableObject {
         }
     }
 
+    /// Asks the running tunnel to re-read custom rules and the list. No-op when it's off.
+    func reload() async {
+        guard isOn, let session = manager?.connection as? NETunnelProviderSession else { return }
+        try? session.sendProviderMessage(Data("reload".utf8)) { _ in }
+    }
+
     private func observe() {
         guard observer == nil, let m = manager else { return }
         observer = NotificationCenter.default.addObserver(
