@@ -25,7 +25,17 @@ final class Store: ObservableObject {
     deinit { updates?.cancel() }
 
     func load() async {
-        products = (try? await Product.products(for: Self.productIDs))?.sorted { $0.price < $1.price } ?? []
+        do {
+            products = try await Product.products(for: Self.productIDs).sorted { $0.price < $1.price }
+            #if DEBUG
+            SharedStore.diag("store: \(products.count) products: " + products.map { "\($0.id) \($0.displayPrice) intro=\(String(describing: $0.subscription?.introductoryOffer?.paymentMode))" }.joined(separator: ", "))
+            #endif
+        } catch {
+            products = []
+            #if DEBUG
+            SharedStore.diag("store: products failed: \(error)")
+            #endif
+        }
         await refreshEntitlements()
     }
 
@@ -39,12 +49,19 @@ final class Store: ObservableObject {
         #if DEBUG
         pro = pro || SharedStore.debugPro
         #endif
+        #if DEBUG
+        SharedStore.diag("store: entitlements pro=\(pro) debugPro=\(SharedStore.debugPro)")
+        #endif
         isPro = pro
         SharedStore.isPro = pro
     }
 
     func purchase(_ product: Product) async throws {
-        if case .success(.verified(let transaction)) = try await product.purchase() {
+        let result = try await product.purchase()
+        #if DEBUG
+        SharedStore.diag("store: purchase \(product.id) -> \(result)")
+        #endif
+        if case .success(.verified(let transaction)) = result {
             await transaction.finish()
             await refreshEntitlements()
         }
