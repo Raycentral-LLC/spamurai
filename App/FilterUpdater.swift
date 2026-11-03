@@ -19,6 +19,12 @@ final class FilterUpdater: ObservableObject {
             enabled[list] = state?.isEnabled ?? false
         }
         youTube = await youTubeState()
+        #if DEBUG
+        if DemoMode.isOn {
+            BlockerList.allCases.forEach { enabled[$0] = true }
+            youTube = .on
+        }
+        #endif
     }
 
     /// iOS 26.2+ reports whether the extension is on; on any version, the extension pinging the

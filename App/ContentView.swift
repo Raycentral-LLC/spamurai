@@ -23,7 +23,9 @@ struct ContentView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     // Slightly shorter than the screen so the stats peek in from the bottom.
-                    hero.containerRelativeFrame(.vertical) { height, _ in height * 0.84 }
+                    if !showsStatsOnly {
+                        hero.containerRelativeFrame(.vertical) { height, _ in height * 0.84 }
+                    }
 
                     statsRow.appear(0.08).id("stats")
                     if !store.isPro { proCard.appear(0.14) }
@@ -40,6 +42,8 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 32)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
                 .scrollTargetLayout()
             }
             .scrollPosition($scroll)
@@ -60,7 +64,11 @@ struct ContentView: View {
             .sheet(isPresented: $showRescue) { RescueView().presentationDetents([.medium, .large]) }
             .task {
                 #if DEBUG
-                if CommandLine.arguments.contains("-paywall") { showPaywall = true }
+                if CommandLine.arguments.contains("-paywall") || DemoMode.shot == "paywall" { showPaywall = true }
+                if DemoMode.shot == "stats" {
+                    try? await Task.sleep(nanoseconds: 1_800_000_000)
+                    withAnimation(.none) { scroll.scrollTo(id: "stats", anchor: .top) }
+                }
                 #endif
                 await filters.refreshStates()
                 await tunnel.load()
@@ -93,7 +101,7 @@ struct ContentView: View {
     private var status: Status {
         #if DEBUG
         // Screenshots in the simulator, where the tunnel can't run.
-        if CommandLine.arguments.contains("-demoOn") { return .on }
+        if CommandLine.arguments.contains("-demoOn") || DemoMode.isOn { return .on }
         #endif
         guard store.isPro else { return .safariOnly }
         if let until = tunnel.pausedUntil, tunnel.isOn { return .paused(until) }
@@ -102,6 +110,15 @@ struct ContentView: View {
         case .connecting, .reasserting: return .connecting
         default: return .off
         }
+    }
+
+    /// Demo screenshots of the section below the fold.
+    private var showsStatsOnly: Bool {
+        #if DEBUG
+        return DemoMode.shot == "stats"
+        #else
+        return false
+        #endif
     }
 
     private var shardPhase: ShardField.Phase {

@@ -8,11 +8,27 @@ struct SpamuraiApp: App {
     @StateObject private var live = LiveStats()
     @AppStorage("onboarded") private var onboarded = false
 
+    init() {
+        #if DEBUG
+        DemoMode.seed()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {
                 #if DEBUG
-                if CommandLine.arguments.contains("-widgets") { WidgetGallery() } else { root }
+                if CommandLine.arguments.contains("-widgets") || DemoMode.shot == "widgets" {
+                    WidgetGallery()
+                } else if DemoMode.shot == "activity" {
+                    NavigationStack { JournalView() }
+                } else if DemoMode.shot == "focus" {
+                    NavigationStack { FocusShieldView() }
+                } else if DemoMode.shot == "onboarding" {
+                    OnboardingView(done: .constant(false))
+                } else {
+                    root
+                }
                 #else
                 root
                 #endif

@@ -49,6 +49,8 @@ struct PaywallView: View {
                 }
                 .padding(.horizontal, 22)
                 .padding(.vertical, 30)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.hidden)
 

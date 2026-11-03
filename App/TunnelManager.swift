@@ -21,7 +21,12 @@ final class TunnelManager: ObservableObject {
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
 
-    var isOn: Bool { [.connected, .connecting, .reasserting].contains(status) }
+    var isOn: Bool {
+        #if DEBUG
+        if DemoMode.isOn { return true }
+        #endif
+        return [.connected, .connecting, .reasserting].contains(status)
+    }
 
     func load() async {
         manager = (try? await NETunnelProviderManager.loadAllFromPreferences())?.first

@@ -45,6 +45,7 @@ struct OnboardingView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 14)
             }
+            .frame(maxWidth: 560)
         }
         .sensoryFeedback(.selection, trigger: page)
         .sheet(isPresented: $showPaywall, onDismiss: { if store.isPro { finish() } }) { PaywallView() }

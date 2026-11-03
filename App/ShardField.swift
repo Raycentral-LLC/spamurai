@@ -16,6 +16,15 @@ struct ShardField: View {
 
     private static let shards: [Shard] = Shard.make(count: 300)
 
+    init(phase: Phase, pulse: Int = 0) {
+        self.phase = phase
+        self.pulse = pulse
+        // Start already in the right shape; animate only on later phase changes.
+        let start = Self.target(for: phase)
+        _from = State(initialValue: start)
+        _to = State(initialValue: start)
+    }
+
     var body: some View {
         TimelineView(.animation) { context in
             let now = context.date
@@ -28,7 +37,6 @@ struct ShardField: View {
                 drawBlade(&gc, size: size, assembly: assembly, sweep: sweep)
             }
         }
-        .onAppear { retarget(animated: false) }
         .onChange(of: phase) { retarget(animated: true) }
         .onChange(of: pulse) { pulseAt = Date() }
         .accessibilityHidden(true)
@@ -36,7 +44,9 @@ struct ShardField: View {
 
     // MARK: - Assembly progress
 
-    private var target: Double {
+    private var target: Double { Self.target(for: phase) }
+
+    private static func target(for phase: Phase) -> Double {
         switch phase {
         case .scattered: 0
         case .gathering: 0.45
