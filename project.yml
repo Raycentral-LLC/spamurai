@@ -16,7 +16,11 @@ targets:
   Spamurai:
     type: application
     platform: iOS
-    sources: [App, Shared]
+    sources:
+      - App
+      - Shared
+      # Debug gallery renders the widget views inside the app (see WidgetGallery).
+      - Widget/WidgetViews.swift
     info:
       path: Config/App-Info.plist
       properties:
@@ -112,6 +116,7 @@ targets:
       - sdk: NetworkExtension.framework
       - framework: Frameworks/Libbox.xcframework
         embed: false
+      - sdk: WidgetKit.framework
     info:
       path: Config/PacketTunnel-Info.plist
       properties:

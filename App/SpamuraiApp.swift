@@ -11,11 +11,11 @@ struct SpamuraiApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if onboarded {
-                    ContentView().transition(.opacity)
-                } else {
-                    OnboardingView(done: $onboarded).transition(.opacity)
-                }
+                #if DEBUG
+                if CommandLine.arguments.contains("-widgets") { WidgetGallery() } else { root }
+                #else
+                root
+                #endif
             }
             .environmentObject(filters)
             .environmentObject(store)
@@ -25,6 +25,16 @@ struct SpamuraiApp: App {
             // The samurai look is built for dark; a forced scheme keeps glass and glows consistent.
             .preferredColorScheme(.dark)
             .onAppear { live.start() }
+        }
+    }
+
+    @ViewBuilder private var root: some View {
+        ZStack {
+            if onboarded {
+                ContentView().transition(.opacity)
+            } else {
+                OnboardingView(done: $onboarded).transition(.opacity)
+            }
         }
     }
 }

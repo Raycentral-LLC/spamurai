@@ -61,6 +61,12 @@ enum SharedStore {
         set { defaults?.set(newValue, forKey: "lastUpdate") }
     }
 
+    /// Set by the tunnel when it starts and stops — lets the widget show protection status.
+    static var tunnelActive: Bool {
+        get { defaults?.bool(forKey: "tunnelActive") ?? false }
+        set { defaults?.set(newValue, forKey: "tunnelActive") }
+    }
+
     /// Blocking is paused until this date (the tunnel stays up and resolves everything).
     static var pausedUntil: Date? {
         get {

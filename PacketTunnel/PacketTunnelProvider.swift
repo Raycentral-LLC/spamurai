@@ -1,4 +1,5 @@
 import NetworkExtension
+import WidgetKit
 
 /// Pro: system-wide DNS filtering. Only the tunnel's DNS address is routed into it,
 /// so regular traffic never passes through sing-box — it just answers DNS and blocks listed domains.
@@ -20,6 +21,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         SharedStore.diag("started: \(Memory.report())")
         journal.start()
         scheduleResume()
+        markActive(true)
         Task {
             var elapsed: UInt64 = 0
             for delay in [5, 25, 90] + Array(repeating: 600, count: 36) as [UInt64] {
@@ -32,6 +34,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         try await core.start(provider: self, configJson: try DNSConfig.make())
         journal.start()
         scheduleResume()
+        markActive(true)
         #endif
     }
 
@@ -42,6 +45,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         resumeTask?.cancel()
         journal.stop()
         core.stop()
+        markActive(false)
     }
 
     /// App → tunnel messages: "version"; "reload" re-reads custom rules, pause state and the list
@@ -61,6 +65,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         default:
             return nil
         }
+    }
+
+    private func markActive(_ active: Bool) {
+        SharedStore.tunnelActive = active
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Re-arms blocking when a pause ends — here, so it happens even with the app closed.
