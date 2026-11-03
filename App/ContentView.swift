@@ -13,14 +13,18 @@ struct ContentView: View {
     @State private var showPaywall = false
     @State private var showSafariHelp = false
     @State private var taps = 0
+    @State private var scroll = ScrollPosition(edge: .top)
+    /// The one-time "there's more below" nudge.
+    @AppStorage("scrollHintShown") private var scrollHintShown = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    hero.containerRelativeFrame(.vertical) { height, _ in height * 0.9 }
+                    // Slightly shorter than the screen so the stats peek in from the bottom.
+                    hero.containerRelativeFrame(.vertical) { height, _ in height * 0.84 }
 
-                    statsRow.appear(0.08)
+                    statsRow.appear(0.08).id("stats")
                     if !store.isPro { proCard.appear(0.14) }
                     if store.isPro { liveCard.appear(0.18) }
                     trackersCard.appear(0.24)
@@ -34,7 +38,9 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 32)
+                .scrollTargetLayout()
             }
+            .scrollPosition($scroll)
             .scrollIndicators(.hidden)
             .background(AmbientBackground())
             .navigationBarTitleDisplayMode(.inline)
@@ -143,11 +149,33 @@ struct ContentView: View {
             .sensoryFeedback(.impact(weight: .medium), trigger: taps)
             .padding(.bottom, 18)
 
-            Image(systemName: "chevron.compact.down")
-                .font(.title2)
-                .foregroundStyle(.white.opacity(0.25))
-                .symbolEffect(.pulse, options: .repeating)
+            Button {
+                withAnimation(.smooth(duration: 0.7)) { scroll.scrollTo(id: "stats", anchor: .top) }
+            } label: {
+                VStack(spacing: 6) {
+                    Caps("Stats & activity", color: .white.opacity(0.75))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .symbolEffect(.bounce.down, options: .repeat(.periodic(delay: 1.4)))
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle())
+            .task { await nudgeOnce() }
         }
+    }
+
+    /// First visit only: lift the page a little and let it fall back, showing it scrolls.
+    private func nudgeOnce() async {
+        guard !scrollHintShown else { return }
+        try? await Task.sleep(nanoseconds: 1_600_000_000)
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) { scroll.scrollTo(y: 170) }
+        try? await Task.sleep(nanoseconds: 900_000_000)
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) { scroll.scrollTo(edge: .top) }
+        scrollHintShown = true
     }
 
     private var statusCaption: String {
