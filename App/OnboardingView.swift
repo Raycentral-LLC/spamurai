@@ -7,6 +7,7 @@ struct OnboardingView: View {
     @State private var page = 0
     @State private var showPaywall = false
     @State private var showSafariHelp = false
+    @State private var assembled = false
 
     var body: some View {
         ZStack {
@@ -56,13 +57,11 @@ struct OnboardingView: View {
 
     private var welcome: some View {
         Page(title: "Spamurai", subtitle: "One clean cut through ads and trackers — in Safari and every app.") {
-            ZStack {
-                Circle().fill(Theme.crimson.opacity(0.4)).frame(width: 200).blur(radius: 60)
-                Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 110, weight: .semibold))
-                    .foregroundStyle(Theme.blade)
-                    .symbolEffect(.bounce, value: page)
-            }
+            ShardField(phase: assembled ? .assembled : .scattered)
+                .task {
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    assembled = true
+                }
         }
     }
 
@@ -115,10 +114,10 @@ private struct Page<Art: View>: View {
             art.frame(height: 240)
             VStack(spacing: 12) {
                 Text(title)
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                    .font(.system(size: 30, weight: .light))
                     .multilineTextAlignment(.center)
                 Text(subtitle)
-                    .font(.title3)
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }

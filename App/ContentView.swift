@@ -2,7 +2,8 @@ import Charts
 import SwiftUI
 import WidgetKit
 
-/// Home: the protection orb, live counters, what's being blocked right now and by whom.
+/// Home: a full-screen hero (glass shards that assemble into the shield when protected),
+/// then live activity, trackers and settings below the fold.
 struct ContentView: View {
     @EnvironmentObject private var filters: FilterUpdater
     @EnvironmentObject private var store: Store
@@ -11,24 +12,13 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPaywall = false
     @State private var showSafariHelp = false
+    @State private var taps = 0
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    ProtectionOrb(mode: orbMode, blockedToday: live.today.blocked, pulse: live.blockPulse) {
-                        toggleProtection()
-                    }
-                    .contextMenu { pauseMenu }
-                    .padding(.top, 4)
-                    .appear()
-
-                    if let error = tunnel.errorMessage {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.yellow)
-                            .transition(.opacity)
-                    }
+                    hero.containerRelativeFrame(.vertical) { height, _ in height * 0.9 }
 
                     statsRow.appear(0.08)
                     if !store.isPro { proCard.appear(0.14) }
@@ -47,10 +37,16 @@ struct ContentView: View {
             }
             .scrollIndicators(.hidden)
             .background(AmbientBackground())
-            .navigationTitle("Spamurai")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showSafariHelp = true } label: { Image(systemName: "questionmark.circle") }
+                }
+                ToolbarItem(placement: .principal) { Caps("Spamurai", color: .white.opacity(0.85)) }
                 ToolbarItem(placement: .topBarTrailing) { menu }
             }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .tint(.white)
             .sheet(isPresented: $showPaywall) { PaywallView() }
             .sheet(isPresented: $showSafariHelp) { SafariHelpView().presentationDetents([.medium, .large]) }
             .task {
@@ -81,15 +77,115 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Orb
+    // MARK: - Hero
 
-    private var orbMode: ProtectionOrb.Mode {
+    private enum Status { case safariOnly, off, connecting, on, paused(Date) }
+
+    private var status: Status {
+        #if DEBUG
+        // Screenshots in the simulator, where the tunnel can't run.
+        if CommandLine.arguments.contains("-demoOn") { return .on }
+        #endif
         guard store.isPro else { return .safariOnly }
-        if let until = tunnel.pausedUntil, tunnel.isOn { return .paused(until: until) }
+        if let until = tunnel.pausedUntil, tunnel.isOn { return .paused(until) }
         switch tunnel.status {
         case .connected: return .on
         case .connecting, .reasserting: return .connecting
         default: return .off
+        }
+    }
+
+    private var shardPhase: ShardField.Phase {
+        switch status {
+        case .on: .assembled
+        case .connecting: .gathering
+        case .paused: .paused
+        case .off, .safariOnly: .scattered
+        }
+    }
+
+    private var isOn: Bool { if case .on = status { true } else { false } }
+
+    private var hero: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                ModeChip(title: "Safari", on: filters.enabled.values.contains(true))
+                ModeChip(title: "All apps", on: isOn)
+            }
+            .padding(.top, 8)
+            .appear()
+
+            ShardField(phase: shardPhase, pulse: live.blockPulse)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { toggleProtection() }
+                .contextMenu { pauseMenu }
+                .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: live.blockPulse)
+
+            VStack(spacing: 10) {
+                Caps(statusCaption, color: isOn ? Theme.crimson : .secondary)
+                    .contentTransition(.opacity)
+                statusTitle
+                    .font(.system(size: 30, weight: .light))
+                    .monospacedDigit()
+                if let error = tunnel.errorMessage {
+                    Text(error).font(.caption).foregroundStyle(.yellow).multilineTextAlignment(.center)
+                }
+            }
+            .animation(.easeInOut(duration: 0.4), value: statusCaption)
+            .padding(.bottom, 22)
+
+            Button(buttonTitle) {
+                taps += 1
+                toggleProtection()
+            }
+            .buttonStyle(OutlineButtonStyle(active: isOn))
+            .sensoryFeedback(.impact(weight: .medium), trigger: taps)
+            .padding(.bottom, 18)
+
+            Image(systemName: "chevron.compact.down")
+                .font(.title2)
+                .foregroundStyle(.white.opacity(0.25))
+                .symbolEffect(.pulse, options: .repeating)
+        }
+    }
+
+    private var statusCaption: String {
+        switch status {
+        case .on: "Protected · every app"
+        case .connecting: "Arming"
+        case .paused: "Paused"
+        case .off: "Protection off"
+        case .safariOnly: "Safari only"
+        }
+    }
+
+    @ViewBuilder private var statusTitle: some View {
+        switch status {
+        case .on:
+            HStack(spacing: 8) {
+                Text(live.today.blocked.formatted())
+                    .contentTransition(.numericText(value: Double(live.today.blocked)))
+                Text("blocked").foregroundStyle(.secondary)
+            }
+        case .paused(let until):
+            Text("Resumes \(until, style: .relative)").font(.system(size: 22, weight: .light))
+        case .connecting:
+            Text("Gathering the blade")
+        case .off:
+            Text("Tap to arm")
+        case .safariOnly:
+            Text("Unlock every app")
+        }
+    }
+
+    private var buttonTitle: String {
+        switch status {
+        case .on: "Protected"
+        case .connecting: "Connecting"
+        case .paused: "Resume"
+        case .off: "Protect"
+        case .safariOnly: "Go Pro"
         }
     }
 
@@ -122,10 +218,10 @@ struct ContentView: View {
 
     private var statsRow: some View {
         HStack(spacing: 10) {
-            StatTile(value: live.today.blocked, label: "Blocked today", style: AnyShapeStyle(Theme.blade))
+            StatTile(value: live.today.blocked, label: "Today", style: AnyShapeStyle(Theme.crimson))
             StatTile(value: Int((live.today.blockedShare * 100).rounded()), suffix: "%",
-                     label: "Of lookups", style: AnyShapeStyle(Color.orange))
-            StatTile(value: live.allTime, label: "All time", style: AnyShapeStyle(Color.primary))
+                     label: "Share", style: AnyShapeStyle(Color.white))
+            StatTile(value: live.allTime, label: "All time", style: AnyShapeStyle(Color.white))
         }
     }
 
@@ -145,8 +241,13 @@ struct ContentView: View {
                 Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.8))
             }
             .padding(18)
-            .background(Theme.blade, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: Theme.crimson.opacity(0.4), radius: 20, y: 10)
+            .background(
+                LinearGradient(colors: [Theme.crimson.opacity(0.35), Theme.crimson.opacity(0.08)],
+                               startPoint: .leading, endPoint: .trailing),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.crimson.opacity(0.6), lineWidth: 0.75))
+            .shadow(color: Theme.crimson.opacity(0.35), radius: 18)
         }
         .buttonStyle(PressableStyle())
     }
@@ -316,17 +417,18 @@ private struct StatTile: View {
     var body: some View {
         VStack(spacing: 4) {
             Text("\(value.formatted())\(suffix)")
-                .font(.system(.title2, design: .rounded).weight(.bold))
+                .font(.system(size: 24, weight: .light))
                 .foregroundStyle(style)
                 .monospacedDigit()
                 .contentTransition(.numericText(value: Double(value)))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Caps(label)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 0.75))
     }
 }
 
@@ -365,5 +467,28 @@ struct SafariHelpView: View {
             .navigationTitle("Enable in Safari")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
+    }
+}
+
+/// Small status capsule at the top of the hero.
+private struct ModeChip: View {
+    let title: String
+    let on: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(on ? Theme.jade : Color.white.opacity(0.25))
+                .frame(width: 6, height: 6)
+                .shadow(color: on ? Theme.jade : .clear, radius: 4)
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.6)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Capsule().strokeBorder(.white.opacity(on ? 0.3 : 0.12), lineWidth: 0.75))
+        .foregroundStyle(on ? .white : .secondary)
+        .animation(.easeInOut, value: on)
     }
 }

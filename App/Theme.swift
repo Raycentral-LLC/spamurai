@@ -12,7 +12,7 @@ enum Theme {
                                      startPoint: .topLeading, endPoint: .bottomTrailing)
 }
 
-/// Rounded glass card used across the app.
+/// Flat near-black panel with a hairline edge — quiet, so the hero stays the focus.
 struct Card<Content: View>: View {
     var padding: CGFloat = 16
     @ViewBuilder var content: Content
@@ -21,11 +21,50 @@ struct Card<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(.white.opacity(0.08))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(.white.opacity(0.08), lineWidth: 0.75)
             )
+    }
+}
+
+/// Small uppercase label with wide tracking — the app's "instrument panel" type.
+struct Caps: View {
+    let text: String
+    var color: Color = .secondary
+
+    init(_ text: String, color: Color = .secondary) {
+        self.text = text
+        self.color = color
+    }
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(2.2)
+            .foregroundStyle(color)
+    }
+}
+
+/// Thin outlined capsule button that glows when active.
+struct OutlineButtonStyle: ButtonStyle {
+    var active: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .tracking(3)
+            .textCase(.uppercase)
+            .foregroundStyle(active ? Theme.crimson : .white)
+            .padding(.horizontal, 34)
+            .padding(.vertical, 13)
+            .background(Capsule().fill(active ? Theme.crimson.opacity(0.12) : .white.opacity(0.04)))
+            .overlay(Capsule().strokeBorder(active ? Theme.crimson : .white.opacity(0.35), lineWidth: 1))
+            .shadow(color: active ? Theme.crimson.opacity(0.6) : .clear, radius: 14)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .animation(.easeInOut(duration: 0.5), value: active)
     }
 }
 
@@ -56,7 +95,7 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         HStack {
-            Text(title).font(.title3.weight(.bold))
+            Caps(title, color: .white.opacity(0.7))
             Spacer()
             trailing
         }

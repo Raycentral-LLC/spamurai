@@ -8,6 +8,7 @@ struct PaywallView: View {
     @State private var purchasing = false
     @State private var error: String?
     @State private var purchased = 0
+    @State private var assembled = false
 
     private let features: [(icon: String, title: String, detail: String)] = [
         ("apps.iphone", "Every app, not just Safari", "Games, social and news apps lose their ads and trackers."),
@@ -62,19 +63,19 @@ struct PaywallView: View {
 
     private var hero: some View {
         VStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Theme.crimson.opacity(0.35)).frame(width: 140).blur(radius: 40)
-                Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 78, weight: .semibold))
-                    .foregroundStyle(Theme.blade)
-                    .symbolEffect(.pulse.byLayer, options: .repeating)
-            }
-            .frame(height: 130)
-            Text("Spamurai Pro")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-            Text("Cut the noise out of every app.")
-                .font(.title3)
+            ShardField(phase: assembled ? .assembled : .scattered)
+                .frame(height: 230)
+                .task {
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    assembled = true
+                }
+            Caps("Spamurai Pro", color: Theme.crimson)
+            Text("Every app. One blade.")
+                .font(.system(size: 32, weight: .light))
+            Text("Ads and trackers cut out of Safari, games, social and news.")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
     }
 
@@ -178,7 +179,7 @@ private struct PlanCard: View {
             Text(product.displayPrice).font(.headline.monospacedDigit())
         }
         .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.white.opacity(selected ? 0.06 : 0.03), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(selected ? AnyShapeStyle(Theme.blade) : AnyShapeStyle(Color.white.opacity(0.08)),
