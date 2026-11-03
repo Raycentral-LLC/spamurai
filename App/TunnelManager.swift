@@ -6,6 +6,17 @@ final class TunnelManager: ObservableObject {
     @Published private(set) var status: NEVPNStatus = .invalid
     @Published var errorMessage: String?
     @Published private(set) var pausedUntil = SharedStore.pausedUntil
+    /// App Review 5.4: the data-use statement must be shown before the VPN is first used.
+    @Published var showDisclosure = false
+
+    private static let disclosureKey = "vpnDisclosureAccepted"
+    var disclosureAccepted: Bool { UserDefaults.standard.bool(forKey: Self.disclosureKey) }
+
+    func acceptDisclosure() async {
+        UserDefaults.standard.set(true, forKey: Self.disclosureKey)
+        showDisclosure = false
+        await setEnabled(true)
+    }
 
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
@@ -19,6 +30,10 @@ final class TunnelManager: ObservableObject {
     }
 
     func setEnabled(_ on: Bool) async {
+        if on, !disclosureAccepted {
+            showDisclosure = true
+            return
+        }
         errorMessage = nil
         do {
             if on {

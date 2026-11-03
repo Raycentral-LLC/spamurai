@@ -9,10 +9,12 @@ struct PaywallView: View {
     @State private var error: String?
     @State private var purchased = 0
     @State private var assembled = false
+    @State private var showDisclosure = false
 
     private let features: [(icon: String, title: String, detail: String)] = [
         ("apps.iphone", "Every app, not just Safari", "Games, social and news apps lose their ads and trackers."),
         ("waveform.path.ecg", "See who's watching", "Live activity shows every company an app talks to."),
+        ("play.rectangle.fill", "YouTube without ads in Safari", "Video ads skipped and ad slots hidden on youtube.com."),
         ("moon.circle.fill", "Focus Shield", "Block social, video and news on a schedule or with your iOS Focus."),
         ("wrench.and.screwdriver.fill", "One-tap fix", "Site broken? See what was just blocked and allow it in a tap."),
         ("hand.raised.fill", "Your rules", "Allow or block any domain with one swipe."),
@@ -152,6 +154,21 @@ struct PaywallView: View {
     }
 
     private var footer: some View {
+        VStack(spacing: 12) {
+            // App Review 5.4: data use stated before purchase.
+            Button { showDisclosure = true } label: {
+                Label("Uses a local VPN configuration for DNS only. We collect no data — see how it works.",
+                      systemImage: "lock.shield")
+                    .font(.caption)
+                    .multilineTextAlignment(.leading)
+            }
+            .foregroundStyle(.secondary)
+            .sheet(isPresented: $showDisclosure) { DataDisclosureView() }
+            links
+        }
+    }
+
+    private var links: some View {
         HStack(spacing: 18) {
             Button("Restore") { Task { await store.restore(); if store.isPro { dismiss() } } }
             Link("Terms", destination: AppConfig.termsURL)

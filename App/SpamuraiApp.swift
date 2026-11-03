@@ -25,6 +25,11 @@ struct SpamuraiApp: App {
             // The samurai look is built for dark; a forced scheme keeps glass and glows consistent.
             .preferredColorScheme(.dark)
             .onAppear { live.start() }
+            .sheet(isPresented: $tunnel.showDisclosure) {
+                DataDisclosureView { Task { await tunnel.acceptDisclosure() } }
+                    .presentationDetents([.large])
+                    .interactiveDismissDisabled()
+            }
         }
     }
 

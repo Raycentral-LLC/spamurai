@@ -1,0 +1,27 @@
+/* Ad slots on youtube.com and m.youtube.com. Scoped to html.spamurai-yt (set once Pro is
+   confirmed) so the page is untouched otherwise. */
+html.spamurai-yt #masthead-ad,
+html.spamurai-yt #player-ads,
+html.spamurai-yt ytd-ad-slot-renderer,
+html.spamurai-yt ytd-in-feed-ad-layout-renderer,
+html.spamurai-yt ytd-promoted-sparkles-web-renderer,
+html.spamurai-yt ytd-promoted-video-renderer,
+html.spamurai-yt ytd-display-ad-renderer,
+html.spamurai-yt ytd-banner-promo-renderer,
+html.spamurai-yt ytd-statement-banner-renderer,
+html.spamurai-yt ytd-search-pyv-renderer,
+html.spamurai-yt ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"],
+html.spamurai-yt ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+html.spamurai-yt ytd-rich-section-renderer:has(ytd-statement-banner-renderer),
+html.spamurai-yt ad-slot-renderer,
+html.spamurai-yt ytm-promoted-sparkles-web-renderer,
+html.spamurai-yt ytm-promoted-video-renderer,
+html.spamurai-yt ytm-companion-ad-renderer,
+html.spamurai-yt ytm-rich-item-renderer:has(ad-slot-renderer),
+html.spamurai-yt ytm-item-section-renderer:has(ad-slot-renderer),
+html.spamurai-yt .ytp-ad-overlay-container,
+html.spamurai-yt .ytp-ad-image-overlay,
+html.spamurai-yt .ytp-featured-product,
+html.spamurai-yt .ytd-merch-shelf-renderer {
+  display: none !important;
+}

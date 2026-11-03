@@ -161,6 +161,10 @@ enum DNSConfig {
             ruleSets.append(["type": "local", "tag": "block", "format": "binary", "path": listPath])
             dnsRules.append(["rule_set": ["block"], "action": "predefined", "rcode": "NXDOMAIN"])
         }
+        if !paused {
+            ruleSets.append(["type": "inline", "tag": "extras", "rules": [["domain_suffix": ExtraBlocklist.domains]]])
+            dnsRules.append(["rule_set": ["extras"], "action": "predefined", "rcode": "NXDOMAIN"])
+        }
 
         #if DEBUG
         let logPath = FileManager.default

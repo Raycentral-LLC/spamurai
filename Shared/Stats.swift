@@ -119,3 +119,18 @@ enum CustomRules {
         return Array(Set(cleaned)).sorted()
     }
 }
+
+/// YouTube ads skipped by the Safari extension, per day (kept apart from the tunnel's counters,
+/// which another process writes).
+enum YouTubeStats {
+    private static var key: String { "yt.skipped.\(DayStats.dayKey())" }
+
+    static var today: Int { SharedStore.defaults?.integer(forKey: key) ?? 0 }
+
+    @discardableResult
+    static func recordSkip() -> Int {
+        let count = today + 1
+        SharedStore.defaults?.set(count, forKey: key)
+        return count
+    }
+}

@@ -51,6 +51,7 @@ targets:
       - target: ContentBlockerPrivacy
       - target: PacketTunnel
       - target: SpamuraiWidget
+      - target: YouTubeExtension
       - framework: Frameworks/Libbox.xcframework
         link: false
         embed: true
@@ -160,3 +161,45 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.raycentral.spamurai.Widget
+
+  YouTubeExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - WebExtension/SafariWebExtensionHandler.swift
+      - Shared
+      # Web extension files must sit at the extension bundle's root.
+      - path: WebExtension/Resources/manifest.json
+        buildPhase: resources
+      - path: WebExtension/Resources/background.js
+        buildPhase: resources
+      - path: WebExtension/Resources/youtube.js
+        buildPhase: resources
+      - path: WebExtension/Resources/youtube.css
+        buildPhase: resources
+      - path: WebExtension/Resources/icon-48.png
+        buildPhase: resources
+      - path: WebExtension/Resources/icon-96.png
+        buildPhase: resources
+      - path: WebExtension/Resources/icon-128.png
+        buildPhase: resources
+      - path: WebExtension/Resources/icon-256.png
+        buildPhase: resources
+      - path: WebExtension/Resources/icon-512.png
+        buildPhase: resources
+    info:
+      path: Config/YouTubeExtension-Info.plist
+      properties:
+        CFBundleDisplayName: Spamurai YouTube
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.Safari.web-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SafariWebExtensionHandler
+    entitlements:
+      path: Config/YouTubeExtension.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.raycentral.spamurai]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.raycentral.spamurai.YouTube

@@ -397,6 +397,23 @@ struct ContentView: View {
                     }
                     .animation(.snappy, value: on)
                 }
+                HStack {
+                    Image(systemName: "play.rectangle")
+                        .frame(width: 26)
+                        .foregroundStyle(store.isPro ? Theme.crimson : .secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("YouTube ads")
+                        Text(store.isPro ? "\(YouTubeStats.today) skipped today" : "Skip them in Safari with Pro")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(store.isPro ? "Set up" : "Pro") {
+                        if store.isPro { showSafariHelp = true } else { showPaywall = true }
+                    }
+                    .font(.caption.weight(.bold))
+                    .buttonStyle(.bordered)
+                    .tint(Theme.crimson)
+                }
             }
         }
     }
@@ -434,6 +451,7 @@ struct ContentView: View {
             if store.isPro { NavigationLink { RulesView() } label: { Label("My rules", systemImage: "list.bullet") } }
             Button("Restore purchases", systemImage: "arrow.clockwise") { Task { await store.restore() } }
             Button("How to enable Safari", systemImage: "safari") { showSafariHelp = true }
+            NavigationLink { AboutView() } label: { Label("About & licenses", systemImage: "info.circle") }
         } label: {
             Image(systemName: "ellipsis.circle").font(.title3)
         }
@@ -479,6 +497,7 @@ struct SafariHelpView: View {
         ("square.grid.2x2", "Tap Apps, then Safari"),
         ("puzzlepiece.extension", "Tap Extensions"),
         ("checkmark.circle", "Turn on Spamurai Ads and Spamurai Privacy"),
+        ("play.rectangle", "Pro: turn on Spamurai YouTube, then set youtube.com to Allow"),
     ]
 
     var body: some View {
