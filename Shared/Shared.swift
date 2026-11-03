@@ -23,6 +23,7 @@ enum BlockerList: String, CaseIterable, Identifiable, Hashable {
         }
     }
     var extensionID: String { "\(AppConfig.bundlePrefix).ContentBlocker\(rawValue.capitalized)" }
+    static let youTubeExtensionID = "\(AppConfig.bundlePrefix).YouTube"
     var remoteURL: URL { AppConfig.filtersBaseURL.appendingPathComponent("safari/\(rawValue).json") }
 }
 

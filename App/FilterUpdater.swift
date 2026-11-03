@@ -1,10 +1,14 @@
 import Foundation
 import SafariServices
+import UIKit
 
 /// Downloads rule lists into the App Group and asks Safari to recompile them.
 @MainActor
 final class FilterUpdater: ObservableObject {
     @Published private(set) var enabled: [BlockerList: Bool] = [:]
+    @Published private(set) var youTube = YouTubeState.unknown
+
+    enum YouTubeState { case unknown, off, needsSiteAccess, on }
     @Published private(set) var isUpdating = false
     @Published private(set) var lastUpdate: Date? = SharedStore.lastUpdate
     @Published var errorMessage: String?
@@ -14,6 +18,20 @@ final class FilterUpdater: ObservableObject {
             let state = try? await SFContentBlockerManager.stateOfContentBlocker(withIdentifier: list.extensionID)
             enabled[list] = state?.isEnabled ?? false
         }
+        youTube = await youTubeState()
+    }
+
+    /// iOS 26.2+ reports whether the extension is on; on any version, the extension pinging the
+    /// app from youtube.com proves the site is allowed too.
+    private func youTubeState() async -> YouTubeState {
+        let seen = YouTubeStats.lastSeen != nil
+        if #available(iOS 26.2, *) {
+            guard let state = try? await SFSafariExtensionManager.stateOfExtension(withIdentifier: BlockerList.youTubeExtensionID)
+            else { return seen ? .on : .unknown }
+            if !state.isEnabled { return .off }
+            return seen ? .on : .needsSiteAccess
+        }
+        return seen ? .on : .unknown
     }
 
     func updateIfStale(maxAge: TimeInterval = 24 * 3600) async {
@@ -68,5 +86,29 @@ final class FilterUpdater: ObservableObject {
             try? await SFContentBlockerManager.reloadContentBlocker(withIdentifier: list.extensionID)
             throw error
         }
+    }
+}
+
+/// Opens Settings at Safari's extension list (iOS 26.2+); otherwise the app's own settings page.
+@MainActor
+enum SafariSettingsLink {
+    static var opensExtensions: Bool {
+        if #available(iOS 26.2, *) { return true }
+        return false
+    }
+
+    static func open() {
+        if #available(iOS 26.2, *) {
+            let ids = BlockerList.allCases.map(\.extensionID) + [BlockerList.youTubeExtensionID]
+            SFSafariSettings.openExtensionsSettings(forIdentifiers: ids) { error in
+                if error != nil { openAppSettings() }
+            }
+        } else {
+            openAppSettings()
+        }
+    }
+
+    private static func openAppSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
     }
 }

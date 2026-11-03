@@ -378,7 +378,10 @@ struct ContentView: View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Safari") {
-                    Button("How to enable") { showSafariHelp = true }.font(.subheadline.weight(.semibold))
+                    Button("How to enable") {
+                        if SafariSettingsLink.opensExtensions { SafariSettingsLink.open() } else { showSafariHelp = true }
+                    }
+                    .font(.subheadline.weight(.semibold))
                 }
                 ForEach(BlockerList.allCases) { list in
                     let on = filters.enabled[list] == true
@@ -397,25 +400,58 @@ struct ContentView: View {
                     }
                     .animation(.snappy, value: on)
                 }
-                HStack {
-                    Image(systemName: "play.rectangle")
-                        .frame(width: 26)
-                        .foregroundStyle(store.isPro ? Theme.crimson : .secondary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("YouTube ads")
-                        Text(store.isPro ? "\(YouTubeStats.today) skipped today" : "Skip them in Safari with Pro")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button(store.isPro ? "Set up" : "Pro") {
-                        if store.isPro { showSafariHelp = true } else { showPaywall = true }
-                    }
-                    .font(.caption.weight(.bold))
-                    .buttonStyle(.bordered)
-                    .tint(Theme.crimson)
-                }
+                youTubeRow
             }
         }
+    }
+
+    private var youTubeRow: some View {
+        let state = store.isPro ? filters.youTube : .off
+        let on = store.isPro && state == .on
+        return HStack {
+            Image(systemName: "play.rectangle")
+                .frame(width: 26)
+                .foregroundStyle(on ? Theme.jade : .secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("YouTube ads")
+                Group {
+                    if !store.isPro {
+                        Text("Skip them in Safari with Pro")
+                    } else {
+                        switch state {
+                        case .on: Text("\(YouTubeStats.today) skipped today")
+                        case .needsSiteAccess: Text("Open youtube.com in Safari and tap Allow").foregroundStyle(.yellow)
+                        case .off: Text("Turn on Spamurai YouTube in Safari")
+                        case .unknown: Text("Turn it on, then open youtube.com once")
+                        }
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if on {
+                statusPill(on: true)
+            } else {
+                Button(store.isPro ? "Set up" : "Pro") {
+                    if !store.isPro { showPaywall = true }
+                    else if SafariSettingsLink.opensExtensions { SafariSettingsLink.open() }
+                    else { showSafariHelp = true }
+                }
+                .font(.caption.weight(.bold))
+                .buttonStyle(.bordered)
+                .tint(Theme.crimson)
+            }
+        }
+        .animation(.snappy, value: on)
+    }
+
+    private func statusPill(on: Bool) -> some View {
+        Text(on ? "On" : "Off")
+            .font(.caption.weight(.bold))
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background((on ? Theme.jade : Color.gray).opacity(0.2), in: Capsule())
+            .foregroundStyle(on ? Theme.jade : .secondary)
     }
 
     private var filtersCard: some View {
@@ -516,8 +552,8 @@ struct SafariHelpView: View {
                     .appear(Double(index) * 0.08)
                 }
                 Spacer()
-                Button("Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                Button(SafariSettingsLink.opensExtensions ? "Open Safari Extensions" : "Open Settings") {
+                    SafariSettingsLink.open()
                 }
                 .buttonStyle(PrimaryButtonStyle())
             }

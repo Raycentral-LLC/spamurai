@@ -6,6 +6,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         let item = context.inputItems.first as? NSExtensionItem
         let message = item?.userInfo?[SFExtensionMessageKey] as? [String: Any]
 
+        YouTubeStats.lastSeen = Date()
         var reply: [String: Any] = ["pro": SharedStore.isPro]
         if message?["type"] as? String == "adSkipped", SharedStore.isPro {
             reply["skippedToday"] = YouTubeStats.recordSkip()

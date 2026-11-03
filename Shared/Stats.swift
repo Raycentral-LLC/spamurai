@@ -127,6 +127,12 @@ enum YouTubeStats {
 
     static var today: Int { SharedStore.defaults?.integer(forKey: key) ?? 0 }
 
+    /// Set whenever the extension runs on youtube.com — proof it's on and the site is allowed.
+    static var lastSeen: Date? {
+        get { SharedStore.defaults?.object(forKey: "yt.lastSeen") as? Date }
+        set { SharedStore.defaults?.set(newValue, forKey: "yt.lastSeen") }
+    }
+
     @discardableResult
     static func recordSkip() -> Int {
         let count = today + 1
