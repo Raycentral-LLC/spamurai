@@ -5,9 +5,9 @@ enum AppConfig {
     static let appGroup = "group.com.raycentral.spamurai"
     static let bundlePrefix = "com.raycentral.spamurai"
     // TODO: point to your own domain once GitHub Pages (or R2) is set up.
-    static let filtersBaseURL = URL(string: "https://rahattt.github.io/spamurai")!
+    static let filtersBaseURL = URL(string: "https://raycentral-llc.github.io/spamurai")!
     static let privacyURL = filtersBaseURL.appendingPathComponent("privacy.html")
-    static let sourceURL = URL(string: "https://github.com/Rahattt/spamurai")!
+    static let sourceURL = URL(string: "https://github.com/Raycentral-LLC/spamurai")!
     /// Apple's standard EULA, which App Store subscriptions may use.
     static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 }
