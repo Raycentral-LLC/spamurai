@@ -15,6 +15,7 @@ final class QueryJournal: NSObject, LibboxCommandClientHandlerProtocol, @uncheck
     private var pending: [String: Int] = [:] // connection id → index in `entries`
     private var newBlocked = 0
     private var newTotal = 0
+    private var newFocus = 0
     private var dirty = false
     private var flushTimer: DispatchSourceTimer?
 
@@ -67,9 +68,10 @@ final class QueryJournal: NSObject, LibboxCommandClientHandlerProtocol, @uncheck
     private func flush() {
         guard dirty else { return }
         dirty = false
-        StatsStore.record(blocked: newBlocked, total: newTotal)
+        StatsStore.record(blocked: newBlocked, total: newTotal, focus: newFocus)
         newBlocked = 0
         newTotal = 0
+        newFocus = 0
         StatsStore.writeJournal(entries)
     }
 
@@ -109,9 +111,16 @@ final class QueryJournal: NSObject, LibboxCommandClientHandlerProtocol, @uncheck
 
         if let m = Self.blockedMatch.firstMatch(in: line, range: range) {
             let id = (line as NSString).substring(with: m.range(at: 1))
-            guard let i = pending.removeValue(forKey: id), i < entries.count, !entries[i].blocked else { return }
-            entries[i].blocked = true
-            newBlocked += 1
+            guard let i = pending.removeValue(forKey: id), i < entries.count,
+                  !entries[i].blocked, entries[i].focus != true else { return }
+            if line.contains("rule_set=focus") {
+                // A distraction kept away, not an ad — counted separately.
+                entries[i].focus = true
+                newFocus += 1
+            } else {
+                entries[i].blocked = true
+                newBlocked += 1
+            }
             dirty = true
         }
     }

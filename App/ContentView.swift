@@ -12,6 +12,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPaywall = false
     @State private var showSafariHelp = false
+    @State private var showRescue = false
     @State private var taps = 0
     @State private var scroll = ScrollPosition(edge: .top)
     /// The one-time "there's more below" nudge.
@@ -26,6 +27,7 @@ struct ContentView: View {
 
                     statsRow.appear(0.08).id("stats")
                     if !store.isPro { proCard.appear(0.14) }
+                    FocusShieldCard { showPaywall = true }.appear(0.16)
                     if store.isPro { liveCard.appear(0.18) }
                     trackersCard.appear(0.24)
                     weekCard.appear(0.3)
@@ -55,6 +57,7 @@ struct ContentView: View {
             .tint(.white)
             .sheet(isPresented: $showPaywall) { PaywallView() }
             .sheet(isPresented: $showSafariHelp) { SafariHelpView().presentationDetents([.medium, .large]) }
+            .sheet(isPresented: $showRescue) { RescueView().presentationDetents([.medium, .large]) }
             .task {
                 #if DEBUG
                 if CommandLine.arguments.contains("-paywall") { showPaywall = true }
@@ -147,7 +150,15 @@ struct ContentView: View {
             }
             .buttonStyle(OutlineButtonStyle(active: isOn))
             .sensoryFeedback(.impact(weight: .medium), trigger: taps)
-            .padding(.bottom, 18)
+            .padding(.bottom, isOn ? 6 : 18)
+
+            if isOn {
+                Button("Something broken?") { showRescue = true }
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .padding(.bottom, 8)
+                    .transition(.opacity)
+            }
 
             Button {
                 withAnimation(.smooth(duration: 0.7)) { scroll.scrollTo(id: "stats", anchor: .top) }

@@ -7,6 +7,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let core = LibboxCore()
     private let journal = QueryJournal()
     private var resumeTask: Task<Void, Never>?
+    private var focusTask: Task<Void, Never>?
+    private var reloadTask: Task<Void, Never>?
 
     override func startTunnel(options: [String: NSObject]?) async throws {
         guard SharedStore.isPro else { throw TunnelError.message("Spamurai Pro is required for system-wide blocking") }
@@ -20,7 +22,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         SharedStore.diag("started: \(Memory.report())")
         journal.start()
-        scheduleResume()
+        scheduleTimers()
+        observeReloads()
         markActive(true)
         Task {
             var elapsed: UInt64 = 0
@@ -33,7 +36,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         #else
         try await core.start(provider: self, configJson: try DNSConfig.make())
         journal.start()
-        scheduleResume()
+        scheduleTimers()
+        observeReloads()
         markActive(true)
         #endif
     }
@@ -43,6 +47,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         SharedStore.diag("stopTunnel reason=\(reason.rawValue) \(Memory.report())")
         #endif
         resumeTask?.cancel()
+        focusTask?.cancel()
+        CFNotificationCenterRemoveEveryObserver(CFNotificationCenterGetDarwinNotifyCenter(),
+                                                Unmanaged.passUnretained(self).toOpaque())
         journal.stop()
         core.stop()
         markActive(false)
@@ -55,13 +62,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         case "version":
             return core.version.data(using: .utf8)
         case "reload":
-            do {
-                try await core.reload(configJson: try DNSConfig.make())
-                scheduleResume()
-                return Data("ok".utf8)
-            } catch {
-                return Data(error.localizedDescription.utf8)
-            }
+            await applyConfig()
+            return Data("ok".utf8)
         default:
             return nil
         }
@@ -72,14 +74,58 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    /// Re-arms blocking when a pause ends — here, so it happens even with the app closed.
-    private func scheduleResume() {
+    /// Rebuilds the config from shared state (rules, pause, Focus Shield) and re-arms timers.
+    private func applyConfig() async {
+        do {
+            try await core.reload(configJson: try DNSConfig.make())
+        } catch {
+            #if DEBUG
+            SharedStore.diag("reload failed: \(error.localizedDescription)")
+            #endif
+        }
+        scheduleTimers()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Timers live here, not in the app, so a pause ends and a Focus schedule starts on time
+    /// even with the app closed.
+    private func scheduleTimers() {
         resumeTask?.cancel()
-        guard let until = SharedStore.pausedUntil else { return }
-        resumeTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(max(0, until.timeIntervalSinceNow) * 1e9))
-            guard !Task.isCancelled, let self else { return }
-            try? await self.core.reload(configJson: try DNSConfig.make())
+        if let until = SharedStore.pausedUntil {
+            resumeTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(max(0, until.timeIntervalSinceNow) * 1e9))
+                guard !Task.isCancelled else { return }
+                await self?.applyConfig()
+            }
+        }
+        focusTask?.cancel()
+        if let boundary = FocusShield.current.nextBoundary() {
+            focusTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(max(1, boundary.timeIntervalSinceNow + 1) * 1e9))
+                guard !Task.isCancelled else { return }
+                await self?.applyConfig()
+            }
+        }
+    }
+
+    /// Any process (app, widget, control, Focus filter) posts a Darwin notification after
+    /// changing shared state; coalesce bursts into one reload.
+    private func observeReloads() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        let observer = Unmanaged.passUnretained(self).toOpaque()
+        CFNotificationCenterAddObserver(center, observer, { _, observer, _, _, _ in
+            guard let observer else { return }
+            let provider = Unmanaged<PacketTunnelProvider>.fromOpaque(observer).takeUnretainedValue()
+            provider.reloadSoon()
+        }, SharedStore.reloadNotification as CFString, nil, .deliverImmediately)
+    }
+
+    private func reloadSoon() {
+        reloadTask?.cancel()
+        reloadTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.applyConfig()
         }
     }
 }
@@ -96,6 +142,13 @@ enum DNSConfig {
         var ruleSets: [[String: Any]] = []
         var dnsRules: [[String: Any]] = []
         let paused = SharedStore.pausedUntil != nil
+        // Focus Shield first: an intentional block shouldn't be undone by the ad-block allow list
+        // or a pause. Its own rule-set tag lets QueryJournal tell these apart from ads.
+        let focusDomains = FocusShield.current.activeDomains
+        if !focusDomains.isEmpty {
+            ruleSets.append(["type": "inline", "tag": "focus", "rules": [["domain_suffix": focusDomains]]])
+            dnsRules.append(["rule_set": ["focus"], "action": "predefined", "rcode": "NXDOMAIN"])
+        }
         // Order matters: the user's allow list wins over everything, then their block list.
         let allow = CustomRules.allow, block = CustomRules.block
         if !allow.isEmpty, !paused {

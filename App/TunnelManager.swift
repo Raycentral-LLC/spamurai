@@ -67,10 +67,21 @@ final class TunnelManager: ObservableObject {
         await reload()
     }
 
-    /// Asks the running tunnel to re-read custom rules and the list. No-op when it's off.
+    /// Asks the running tunnel to re-read shared state (rules, pause, Focus Shield).
     func reload() async {
-        guard isOn, let session = manager?.connection as? NETunnelProviderSession else { return }
-        try? session.sendProviderMessage(Data("reload".utf8)) { _ in }
+        SharedStore.notifyTunnel()
+    }
+
+    /// Starts the installed tunnel if it isn't running — used by the Focus filter, which runs
+    /// in the background without the UI. Does nothing if Pro protection was never set up.
+    nonisolated static func ensureRunning() async {
+        guard SharedStore.isPro,
+              let manager = (try? await NETunnelProviderManager.loadAllFromPreferences())?.first,
+              manager.isEnabled else { return }
+        let status = manager.connection.status
+        if status == .disconnected || status == .invalid {
+            try? manager.connection.startVPNTunnel()
+        }
     }
 
     private func observe() {

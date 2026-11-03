@@ -8,12 +8,16 @@ struct JournalEntry: Codable, Identifiable, Hashable {
     var blocked: Bool
     var date: Date
     var count: Int = 1
+    /// Kept away by Focus Shield rather than the ad/tracker lists.
+    var focus: Bool?
 }
 
 struct DayStats: Codable, Equatable {
     var day: String // yyyy-MM-dd, device-local
     var blocked = 0
     var total = 0
+    /// Distractions held off by Focus Shield (optional: older stored days lack it).
+    var focus: Int?
 
     var blockedShare: Double { total == 0 ? 0 : Double(blocked) / Double(total) }
 
@@ -62,10 +66,11 @@ enum StatsStore {
     }
 
     /// Adds counts to today, rolling the day over when the date changed.
-    static func record(blocked: Int, total: Int) {
+    static func record(blocked: Int, total: Int, focus: Int = 0) {
         var stats = today
         stats.blocked += blocked
         stats.total += total
+        stats.focus = (stats.focus ?? 0) + focus
         today = stats
         blockedAllTime += blocked
         var days = history.filter { $0.day != stats.day }

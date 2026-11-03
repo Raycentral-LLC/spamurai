@@ -127,7 +127,13 @@ struct JournalRow: View {
                 .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            if entry.blocked {
+            if entry.focus == true {
+                Text("FOCUS")
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Color.purple.opacity(0.2), in: Capsule())
+                    .foregroundStyle(.purple)
+            } else if entry.blocked {
                 Text("BLOCKED")
                     .font(.system(size: 10, weight: .heavy, design: .rounded))
                     .padding(.horizontal, 7).padding(.vertical, 3)

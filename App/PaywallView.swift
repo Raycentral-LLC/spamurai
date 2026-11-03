@@ -13,6 +13,8 @@ struct PaywallView: View {
     private let features: [(icon: String, title: String, detail: String)] = [
         ("apps.iphone", "Every app, not just Safari", "Games, social and news apps lose their ads and trackers."),
         ("waveform.path.ecg", "See who's watching", "Live activity shows every company an app talks to."),
+        ("moon.circle.fill", "Focus Shield", "Block social, video and news on a schedule or with your iOS Focus."),
+        ("wrench.and.screwdriver.fill", "One-tap fix", "Site broken? See what was just blocked and allow it in a tap."),
         ("hand.raised.fill", "Your rules", "Allow or block any domain with one swipe."),
         ("square.grid.2x2.fill", "Widgets", "Your daily score on the Home and Lock Screen."),
         ("lock.fill", "Private by design", "Filtering runs on your iPhone. No account, no servers."),
